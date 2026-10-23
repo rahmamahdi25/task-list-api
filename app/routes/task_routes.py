@@ -2,7 +2,7 @@ from flask import Blueprint, Response, abort, make_response, request
 
 from ..db import db
 from ..models.task import Task
-
+from datetime import datetime
 
 tasks_bp = Blueprint("tasks", __name__, url_prefix="/tasks")
 
@@ -91,6 +91,25 @@ def update_task(task_id):
     except KeyError:
         abort(make_response({"details": "Invalid data"}, 400))
 
+    db.session.commit()
+
+    return Response(status=204, mimetype="application/json")
+
+@tasks_bp.patch("/<task_id>/mark_complete")
+def mark_task_complete(task_id):
+    task = get_task_by_id(task_id)
+
+    task.completed_at = datetime.now()
+    db.session.commit()
+
+    return Response(status=204, mimetype="application/json")
+
+
+@tasks_bp.patch("/<task_id>/mark_incomplete")
+def mark_task_incomplete(task_id):
+    task = get_task_by_id(task_id)
+
+    task.completed_at = None
     db.session.commit()
 
     return Response(status=204, mimetype="application/json")
