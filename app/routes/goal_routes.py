@@ -2,6 +2,7 @@ from flask import Blueprint, Response, abort, make_response, request
 
 from ..db import db
 from ..models.goal import Goal
+from ..models.task import Task
 
 
 goals_bp = Blueprint("goals", __name__, url_prefix="/goals")
@@ -48,6 +49,55 @@ def create_goal():
     db.session.commit()
 
     return goal.to_dict(), 201
+
+
+@goals_bp.post("/<goal_id>/tasks")
+def add_tasks_to_goal(goal_id):
+    goal = get_goal_by_id(goal_id)
+    data = parse_json_object()
+    task_ids = data.get("task_ids")
+
+    if not isinstance(task_ids, list):
+        abort(make_response({"details": "Invalid data"}, 400))
+
+    tasks = []
+
+    for task_id in task_ids:
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            abort(make_response(
+                {"message": f"Task id {task_id} invalid"}, 400
+            ))
+
+        query = db.select(Task).where(Task.id == task_id)
+        task = db.session.scalar(query)
+
+        if task is None:
+            abort(make_response(
+                {"message": f"Task id {task_id} not found"}, 404
+            ))
+
+        tasks.append(task)
+
+    goal.tasks = tasks
+    db.session.commit()
+
+    return {
+        "id": goal.id,
+        "task_ids": [task.id for task in goal.tasks]
+    }, 200
+
+
+@goals_bp.get("/<goal_id>/tasks")
+def get_tasks_for_goal(goal_id):
+    goal = get_goal_by_id(goal_id)
+
+    return {
+        "id": goal.id,
+        "title": goal.title,
+        "tasks": [task.to_dict() for task in goal.tasks]
+    }, 200
 
 
 @goals_bp.get("")
