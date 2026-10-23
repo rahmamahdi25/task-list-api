@@ -1,53 +1,23 @@
-import os
-import requests
 
-from flask import Blueprint, Response, abort, make_response, request
+from datetime import datetime
+
+from flask import Blueprint, Response
 
 from ..db import db
 from ..models.task import Task
-from datetime import datetime
+from .route_utilities import (
+    validate_model,
+    parse_json_object,
+    create_instance_from_dict,
+    send_slack_notification,
+)
+
 
 tasks_bp = Blueprint("tasks", __name__, url_prefix="/tasks")
 
 
 def get_task_by_id(task_id):
-    try:
-        task_id = int(task_id)
-    except (TypeError, ValueError):
-        abort(make_response(
-            {"message": f"Task id {task_id} invalid"}, 400
-        ))
-
-    query = db.select(Task).where(Task.id == task_id)
-    task = db.session.scalar(query)
-
-    if task is None:
-        abort(make_response(
-            {"message": f"Task id {task_id} not found"}, 404
-        ))
-
-    return task
-
-
-def create_instance_from_dict(data, factory):
-    try:
-        instance = factory(data)
-    except (KeyError, ValueError):
-        abort(make_response({"details": "Invalid data"}, 400))
-
-    db.session.add(instance)
-    db.session.commit()
-
-    return instance, 201
-
-
-def parse_json_object():
-    data = request.get_json(silent=True)
-
-    if not isinstance(data, dict):
-        abort(make_response({"details": "Invalid data"}, 400))
-
-    return data
+    return validate_model(Task, task_id)
 
 
 @tasks_bp.post("")
@@ -61,8 +31,7 @@ def create_task():
 @tasks_bp.get("")
 def get_all_tasks():
     query = db.select(Task)
-
-    sort_param = request.args.get("sort")
+    sort_param = __import__("flask").request.args.get("sort")
 
     if sort_param == "asc":
         query = query.order_by(Task.title.asc())
@@ -92,12 +61,13 @@ def update_task(task_id):
         task.title = data["title"]
         task.description = data["description"]
     except KeyError:
+        from flask import abort, make_response
         abort(make_response({"details": "Invalid data"}, 400))
 
     db.session.commit()
 
     return Response(status=204, mimetype="application/json")
-    
+
 
 @tasks_bp.patch("/<task_id>/mark_complete")
 def mark_task_complete(task_id):
@@ -106,15 +76,8 @@ def mark_task_complete(task_id):
     task.completed_at = datetime.now()
     db.session.commit()
 
-    requests.post(
-        "https://slack.com/api/chat.postMessage",
-        headers={
-            "Authorization": f"Bearer {os.environ.get('SLACK_BOT_TOKEN')}"
-        },
-        json={
-            "channel": os.environ.get("SLACK_CHANNEL", "task-notifications"),
-            "text": f"Someone just completed the task {task.title}"
-        }
+    send_slack_notification(
+        f"Someone just completed the task {task.title}"
     )
 
     return Response(status=204, mimetype="application/json")

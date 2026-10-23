@@ -3,28 +3,15 @@ from flask import Blueprint, Response, abort, make_response, request
 from ..db import db
 from ..models.goal import Goal
 from ..models.task import Task
+from .route_utilities import get_instance_by_id, parse_json_object
 
 
 goals_bp = Blueprint("goals", __name__, url_prefix="/goals")
 
 
 def get_goal_by_id(goal_id):
-    try:
-        goal_id = int(goal_id)
-    except (TypeError, ValueError):
-        abort(make_response(
-            {"message": f"Goal id {goal_id} invalid"}, 400
-        ))
+    return get_instance_by_id(goal_id, Goal, "Goal")
 
-    query = db.select(Goal).where(Goal.id == goal_id)
-    goal = db.session.scalar(query)
-
-    if goal is None:
-        abort(make_response(
-            {"message": f"Goal id {goal_id} not found"}, 404
-        ))
-
-    return goal
 
 
 def parse_json_object():
