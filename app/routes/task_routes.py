@@ -1,3 +1,6 @@
+import os
+import requests
+
 from flask import Blueprint, Response, abort, make_response, request
 
 from ..db import db
@@ -94,6 +97,7 @@ def update_task(task_id):
     db.session.commit()
 
     return Response(status=204, mimetype="application/json")
+    
 
 @tasks_bp.patch("/<task_id>/mark_complete")
 def mark_task_complete(task_id):
@@ -101,6 +105,17 @@ def mark_task_complete(task_id):
 
     task.completed_at = datetime.now()
     db.session.commit()
+
+    requests.post(
+        "https://slack.com/api/chat.postMessage",
+        headers={
+            "Authorization": f"Bearer {os.environ.get('SLACK_BOT_TOKEN')}"
+        },
+        json={
+            "channel": os.environ.get("SLACK_CHANNEL", "task-notifications"),
+            "text": f"Someone just completed the task {task.title}"
+        }
+    )
 
     return Response(status=204, mimetype="application/json")
 
