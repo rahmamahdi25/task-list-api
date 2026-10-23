@@ -1,10 +1,9 @@
-from flask import Blueprint, Response, abort, make_response, request
+from flask import Blueprint, Response, abort, make_response
 
 from ..db import db
 from ..models.goal import Goal
 from ..models.task import Task
 from .route_utilities import get_instance_by_id, parse_json_object
-
 
 goals_bp = Blueprint("goals", __name__, url_prefix="/goals")
 
@@ -13,23 +12,13 @@ def get_goal_by_id(goal_id):
     return get_instance_by_id(goal_id, Goal, "Goal")
 
 
-
-def parse_json_object():
-    data = request.get_json(silent=True)
-
-    if not isinstance(data, dict):
-        abort(make_response({"details": "Invalid data"}, 400))
-
-    return data
-
-
 @goals_bp.post("")
 def create_goal():
     data = parse_json_object()
 
     try:
         goal = Goal.from_dict(data)
-    except (KeyError, ValueError):
+    except (KeyError, ValueError, TypeError):
         abort(make_response({"details": "Invalid data"}, 400))
 
     db.session.add(goal)
