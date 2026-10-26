@@ -1,15 +1,14 @@
-
 from datetime import datetime
 
-from flask import Blueprint, Response
+from flask import Blueprint, Response, request
 
 from ..db import db
 from ..models.task import Task
 from .route_utilities import (
     validate_model,
     parse_json_object,
-    create_instance_from_dict,
     send_slack_notification,
+    create_model,
 )
 
 
@@ -23,15 +22,13 @@ def get_task_by_id(task_id):
 @tasks_bp.post("")
 def create_task():
     data = parse_json_object()
-    task, status = create_instance_from_dict(data, Task.from_dict)
-
-    return task.to_dict(), status
+    return create_model(Task, data)
 
 
 @tasks_bp.get("")
 def get_all_tasks():
     query = db.select(Task)
-    sort_param = __import__("flask").request.args.get("sort")
+    sort_param = request.args.get("sort")
 
     if sort_param == "asc":
         query = query.order_by(Task.title.asc())

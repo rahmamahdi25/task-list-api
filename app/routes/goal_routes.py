@@ -3,29 +3,27 @@ from flask import Blueprint, Response, abort, make_response
 from ..db import db
 from ..models.goal import Goal
 from ..models.task import Task
-from .route_utilities import get_instance_by_id, parse_json_object
+from .route_utilities import (
+    get_instance_by_id,
+    parse_json_object,
+    validate_model,
+    create_model,
+
+)
 
 goals_bp = Blueprint("goals", __name__, url_prefix="/goals")
 
 
 def get_goal_by_id(goal_id):
+    """Retrieve a goal by ID, allows a custom model name for error messages."""
     return get_instance_by_id(goal_id, Goal, "Goal")
 
 
 @goals_bp.post("")
 def create_goal():
     data = parse_json_object()
-
-    try:
-        goal = Goal.from_dict(data)
-    except (KeyError, ValueError, TypeError):
-        abort(make_response({"details": "Invalid data"}, 400))
-
-    db.session.add(goal)
-    db.session.commit()
-
-    return goal.to_dict(), 201
-
+    return create_model(Goal, data)
+    
 
 @goals_bp.post("/<goal_id>/tasks")
 def add_tasks_to_goal(goal_id):
@@ -39,21 +37,8 @@ def add_tasks_to_goal(goal_id):
     tasks = []
 
     for task_id in task_ids:
-        try:
-            task_id = int(task_id)
-        except (TypeError, ValueError):
-            abort(make_response(
-                {"message": f"Task id {task_id} invalid"}, 400
-            ))
-
-        query = db.select(Task).where(Task.id == task_id)
-        task = db.session.scalar(query)
-
-        if task is None:
-            abort(make_response(
-                {"message": f"Task id {task_id} not found"}, 404
-            ))
-
+        
+        task = validate_model(Task, task_id)
         tasks.append(task)
 
     goal.tasks = tasks

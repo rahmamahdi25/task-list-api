@@ -62,19 +62,6 @@ def create_model(model, request_body):
     return instance.to_dict(), 201
 
 
-def create_instance_from_dict(data, factory):
-    """Create and save an instance using a factory function."""
-    try:
-        instance = factory(data)
-    except (KeyError, ValueError, TypeError):
-        abort(make_response({"details": "Invalid data"}, 400))
-
-    db.session.add(instance)
-    db.session.commit()
-
-    return instance, 201
-
-
 def send_slack_notification(message):
     """Send a Slack notification and log delivery failures."""
     token = os.environ.get("SLACK_BOT_TOKEN")

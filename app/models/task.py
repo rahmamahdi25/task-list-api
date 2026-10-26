@@ -9,7 +9,7 @@ from ..db import db
 
 class Task(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    title: Mapped[str] = mapped_column(String)
+    title: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text)
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(),
