@@ -1,4 +1,4 @@
-from flask import Blueprint, Response, abort, make_response
+from flask import Blueprint, Response, abort, make_response, request
 
 from ..db import db
 from ..models.goal import Goal
@@ -8,7 +8,8 @@ from .route_utilities import (
     parse_json_object,
     validate_model,
     create_model,
-
+    get_models_with_filters,
+    update_model,
 )
 
 goals_bp = Blueprint("goals", __name__, url_prefix="/goals")
@@ -23,7 +24,7 @@ def get_goal_by_id(goal_id):
 def create_goal():
     data = parse_json_object()
     return create_model(Goal, data)
-    
+
 
 @goals_bp.post("/<goal_id>/tasks")
 def add_tasks_to_goal(goal_id):
@@ -54,19 +55,14 @@ def add_tasks_to_goal(goal_id):
 def get_tasks_for_goal(goal_id):
     goal = get_goal_by_id(goal_id)
 
-    return {
-        "id": goal.id,
-        "title": goal.title,
-        "tasks": [task.to_dict() for task in goal.tasks]
-    }, 200
+    return goal.to_dict(with_tasks=True), 200
 
 
 @goals_bp.get("")
 def get_all_goals():
-    query = db.select(Goal).order_by(Goal.id)
-    goals = db.session.scalars(query).all()
-
-    return [goal.to_dict() for goal in goals], 200
+    filters = request.args.to_dict()
+    goals = get_models_with_filters(Goal, filters)
+    return goals, 200
 
 
 @goals_bp.get("/<goal_id>")
@@ -81,14 +77,10 @@ def update_goal(goal_id):
     goal = get_goal_by_id(goal_id)
     data = parse_json_object()
 
-    try:
-        goal.title = data["title"]
-    except KeyError:
+    if "title" not in data:
         abort(make_response({"details": "Invalid data"}, 400))
 
-    db.session.commit()
-
-    return Response(status=204, mimetype="application/json")
+    return update_model(goal, {"title": data["title"]})
 
 
 @goals_bp.delete("/<goal_id>")

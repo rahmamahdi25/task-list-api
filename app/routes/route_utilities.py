@@ -2,7 +2,7 @@ import logging
 import os
 
 import requests
-from flask import abort, make_response, request
+from flask import abort, make_response, request, Response
 
 from ..db import db
 
@@ -35,7 +35,7 @@ def get_instance_by_id(instance_id, model, model_name=None):
 
 
 def validate_model(model, model_id):
-    """Validate a model ID and return the matching database instance."""
+    """Validate a model ID and return the matching database instance"""
     return get_instance_by_id(model_id, model)
 
 
@@ -47,6 +47,40 @@ def parse_json_object():
         abort(make_response({"details": "Invalid data"}, 400))
 
     return data
+
+
+def get_models_with_filters(cls, filters=None):
+    query = db.select(cls)
+    filters = filters or {}
+
+    sort_param = filters.get("sort")
+    sort_by = filters.get("sort_by")
+
+    for attribute, value in filters.items():
+        if attribute in ("sort", "sort_by"):
+            continue
+
+        if hasattr(cls, attribute):
+            query = query.where(getattr(cls, attribute) == value)
+
+    if sort_by and hasattr(cls, sort_by):
+        sort_column = getattr(cls, sort_by)
+
+        if sort_param == "desc":
+            query = query.order_by(sort_column.desc())
+        else:
+            query = query.order_by(sort_column.asc())
+
+    elif sort_param == "asc":
+        query = query.order_by(cls.title.asc())
+    elif sort_param == "desc":
+        query = query.order_by(cls.title.desc())
+    elif hasattr(cls, "id"):
+        query = query.order_by(cls.id)
+
+    models = db.session.scalars(query).all()
+
+    return [model.to_dict() for model in models]
 
 
 def create_model(model, request_body):
@@ -91,3 +125,13 @@ def send_slack_notification(message):
 
     except (requests.RequestException, ValueError):
         logger.exception("Failed to send Slack notification")
+
+
+def update_model(obj, data):
+    for attr, value in data.items():
+        if hasattr(obj, attr):
+            setattr(obj, attr, value)
+    
+    db.session.commit()
+
+    return Response(status=204, mimetype='application/json')

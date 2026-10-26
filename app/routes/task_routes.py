@@ -9,6 +9,8 @@ from .route_utilities import (
     parse_json_object,
     send_slack_notification,
     create_model,
+    get_models_with_filters,
+    update_model,
 )
 
 
@@ -27,19 +29,9 @@ def create_task():
 
 @tasks_bp.get("")
 def get_all_tasks():
-    query = db.select(Task)
-    sort_param = request.args.get("sort")
-
-    if sort_param == "asc":
-        query = query.order_by(Task.title.asc())
-    elif sort_param == "desc":
-        query = query.order_by(Task.title.desc())
-    else:
-        query = query.order_by(Task.id)
-
-    tasks = db.session.scalars(query).all()
-
-    return [task.to_dict() for task in tasks], 200
+    filters = request.args.to_dict()
+    tasks = get_models_with_filters(Task, filters)
+    return tasks, 200
 
 
 @tasks_bp.get("/<task_id>")
@@ -54,16 +46,14 @@ def update_task(task_id):
     task = get_task_by_id(task_id)
     data = parse_json_object()
 
-    try:
-        task.title = data["title"]
-        task.description = data["description"]
-    except KeyError:
+    if "title" not in data or "description" not in data:
         from flask import abort, make_response
         abort(make_response({"details": "Invalid data"}, 400))
 
-    db.session.commit()
-
-    return Response(status=204, mimetype="application/json")
+    return update_model(task, {
+        "title": data["title"],
+        "description": data["description"]
+    })
 
 
 @tasks_bp.patch("/<task_id>/mark_complete")
