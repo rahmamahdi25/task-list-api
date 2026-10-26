@@ -16,6 +16,10 @@ def test_task_to_dict():
     task_dict = new_task.to_dict()
 
     #Assert
+    # Update the expected length from 4 to 5 because goal_id is now included in
+    # Task.to_dict() as part of the Wave 6 Task-to-Goal relationship. Keeping
+    # goal_id in every serialized Task, even when its value is None, this maintains
+    # a consistent API response structure and avoids making the field conditional.
     assert len(task_dict) == 5
     assert task_dict["id"] == 1
     assert task_dict["title"] == "Make My Bed"
@@ -115,7 +119,6 @@ def test_get_tasks_no_saved_tasks(client):
     assert response_body == []
 
 
-#@pytest.mark.skip(reason="No way to test this feature yet")
 def test_get_tasks_one_saved_tasks(client, one_task):
     # Act
     response = client.get("/tasks")
